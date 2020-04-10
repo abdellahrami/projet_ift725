@@ -20,7 +20,7 @@ class DataManager(object):
     """
 
     def __init__(self, train_dataset: torch.utils.data.Dataset,
-                 test_dataset: torch.utils.data.Dataset,
+                 test_dataset: torch.utils.data.Dataset = None,
                  batch_size: int = 1,
                  num_classes: int = None,
                  input_shape: tuple = None,

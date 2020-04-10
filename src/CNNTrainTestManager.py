@@ -85,7 +85,7 @@ class CNNTrainTestManager(object):
             print("Epoch: {} of {}".format(epoch + 1, num_epochs+self.epoch))
             train_loss = 0.0
 
-            with tqdm(range(len(train_loader))) as t:
+            with tqdm(range(len(train_loader)),disable=False) as t:
                 train_losses = []
                 train_accuracies = []
                 for i, data in enumerate(train_loader, 0):
@@ -193,6 +193,25 @@ class CNNTrainTestManager(object):
                 accuracies += self.accuracy(test_outputs, test_labels)
         print("Accuracy (or Dice for cp) on the test set: {:05.3f} %".format(100 * accuracies / len(test_loader)))
         return 100 * accuracies / len(test_loader)
+
+    def get_least_confidence(self,trainset, testset, index_list, out_size):
+        acitv_lr_data = DataManager(trainset, testset, batch_size=100,
+                                    validation=0.0, train_index_list=index_list).get_train_set()
+        dict_indx = {}
+        with torch.no_grad():
+                for data in acitv_lr_data:
+                    inputs, labels, indexes = data[0].to(self.device), data[1].to(self.device), data[2].to(self.device)
+                    outputs = self.model(inputs)
+                    for indx,output in zip(indexes,outputs):
+                        output = list([l.item() for l in output])
+                        output = np.exp(output)/sum(np.exp(output)) #softmax
+                        # dict_indx[indx.item()] = - np.sum(output *  np.log(output))
+                        dict_indx[indx.item()] = max(output)
+                        # output.remove(max(output))
+                        # dict_indx[indx.item()] -= max(output)
+        return [k for k, v in sorted(dict_indx.items(), key=lambda item: item[1])][:out_size]
+        # return list(dict_indx.keys())[:out_size]
+
 
     def plot_metrics(self):
         """
@@ -308,3 +327,4 @@ def optimizer_setup(optimizer_class: Type[torch.optim.Optimizer], **hyperparamet
         return optimizer_class(model.parameters(), **hyperparameters)
 
     return f
+
