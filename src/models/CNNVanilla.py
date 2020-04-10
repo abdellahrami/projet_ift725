@@ -17,7 +17,7 @@ class CnnVanilla(CNNBaseModel):
     Implementation of a CNN Vanilla model architecture
     """
 
-    def __init__(self, num_classes=10, init_weights=True):
+    def __init__(self, num_classes=10, init_weights=True, in_channels=3):
         """
         Builds a CNN vanilla model.
         Args:
@@ -28,7 +28,7 @@ class CnnVanilla(CNNBaseModel):
         super(CnnVanilla, self).__init__()
 
         self.conv_layers = nn.Sequential(
-            nn.Conv2d(in_channels=3, out_channels=32, kernel_size=3, padding=1),
+            nn.Conv2d(in_channels=in_channels, out_channels=32, kernel_size=3, padding=1),
             nn.BatchNorm2d(32),
             nn.ReLU(inplace=True),
             nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, padding=1),
@@ -48,15 +48,24 @@ class CnnVanilla(CNNBaseModel):
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2, stride=2),
         )
-
-        self.fc_layers = nn.Sequential(
-            nn.Linear(256 * 4 * 4, 1024),
-            nn.ReLU(inplace=True),
-            nn.Linear(1024, 512),
-            nn.ReLU(inplace=True),
-            nn.Dropout(p=0.2),
-            nn.Linear(512, num_classes)
-        )
+        if(in_channels == 3):
+            self.fc_layers = nn.Sequential(
+                nn.Linear(256 * 4 * 4, 1024),
+                nn.ReLU(inplace=True),
+                nn.Linear(1024, 512),
+                nn.ReLU(inplace=True),
+                nn.Dropout(p=0.2),
+                nn.Linear(512, num_classes)
+            )
+        elif(in_channels == 1):
+            self.fc_layers = nn.Sequential(
+                nn.Linear(2304, 1024),
+                nn.ReLU(inplace=True),
+                nn.Linear(1024, 512),
+                nn.ReLU(inplace=True),
+                nn.Dropout(p=0.2),
+                nn.Linear(512, num_classes)
+            )
 
     def forward(self, x):
         """

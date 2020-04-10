@@ -19,7 +19,7 @@ class AlexNet(CNNBaseModel):
     `"One weird trick..." <https://arxiv.org/abs/1404.5997>` _ paper
     """
 
-    def __init__(self, num_classes=10, init_weights=True):
+    def __init__(self, num_classes=10, init_weights=True, in_channels=3):
         """
         Builds AlexNet  model.
         Args:
@@ -30,7 +30,7 @@ class AlexNet(CNNBaseModel):
         super(AlexNet, self).__init__(num_classes, init_weights)
 
         self.conv_layers = nn.Sequential(
-            nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=2),
+            nn.Conv2d(in_channels, 64, kernel_size=3, stride=1, padding=2),
             nn.BatchNorm2d(64),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2),

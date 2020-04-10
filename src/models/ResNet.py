@@ -22,7 +22,7 @@ class ResNet(CNNBaseModel):
     Deep Residual Learning for Image Recognition. arXiv:1512.03385
     """
 
-    def __init__(self, num_classes=10, init_weights=True):
+    def __init__(self, num_classes=10, init_weights=True , in_dim = 3):
         """
         Builds ResNet-18 model.
         Args:
@@ -35,7 +35,7 @@ class ResNet(CNNBaseModel):
 
         self.in_channels = 64
 
-        self.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=2, bias=False)
+        self.conv1 = nn.Conv2d(in_dim, 64, kernel_size=3, stride=2, bias=False)
         self.bn1 = nn.BatchNorm2d(64)
         self.layer1 = self._make_resnet18_layer(64, stride=1)
         self.layer2 = self._make_resnet18_layer(128, stride=2)
