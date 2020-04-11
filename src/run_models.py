@@ -1,16 +1,5 @@
-#!/usr/bin/env python
-# -*- coding:utf-8 -*-
-
-"""
-University of Sherbrooke
-Date:
-Authors: Mamadou Mountagha BAH & Pierre-Marc Jodoin
-License: Opensource, free to use
-Other: Suggestions are welcome
-"""
 
 import argparse
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -24,27 +13,25 @@ from torchvision import datasets
 from random import sample
 import matplotlib.pyplot as plt
 import os
+import ast
 from meth_naive import Naive_meth
 from meth_aleat import Aleat_meth
+from meth_cluster import Cluster_meth
 
 
 def argument_parser():
-    """
-        A parser to allow user to easily experiment different models along with datasets and differents parameters
-    """
-    parser = argparse.ArgumentParser(usage='\n python3 train.py [model] [dataset] [hyper_parameters]'
-                                           '\n python3 train.py --model UNet [hyper_parameters]'
-                                           '\n python3 train.py --model UNet --predict',
-                                     description="This program allows to train different models of classification on different datasets.")
+    parser = argparse.ArgumentParser(usage='\n python3 train.py --model=[model] --dataset=[DataSet] --num-epochs=[number of epochs]',
+                                     description="This program train model on DataSet using different active learning methods by appliying"
+                                     "the method on different sizes of the dataset starting from 10% to 100% by a step of 10%")
     parser.add_argument('--model', type=str, default="CnnVanilla",
-                        choices=["CnnVanilla", "VggNet", "AlexNet", "ResNet"])
+                        choices=["CnnVanilla", "AlexNet", "ResNet"])
     parser.add_argument('--dataset', type=str,
                         default="cifar10", choices=["cifar10", "svhn", "Fashion-MNIST"])
     parser.add_argument('--batch_size', type=int, default=20,
                         help='The size of the training batch')
     parser.add_argument('--optimizer', type=str, default="Adam", choices=["Adam", "SGD"],
                         help="The optimizer to use for training the model")
-    parser.add_argument('--num-epochs', type=int, default=10,
+    parser.add_argument('--num-epochs', type=int, default=5,
                         help='The number of epochs')
     parser.add_argument('--validation', type=float, default=0.1,
                         help='Percentage of training data to use for validation')
@@ -96,6 +83,20 @@ if __name__ == "__main__":
     elif args.optimizer == 'Adam':
         optimizer_factory = optimizer_setup(optim.Adam, lr=learning_rate)
 
+    # The clustering method
+    cluster_met = Cluster_meth(train_set=train_set,
+                           test_set=test_set,
+                           model_name=args.model,
+                           optimizer_factory=optimizer_factory,
+                           num_epochs=num_epochs,
+                           val_set=val_set,
+                           in_channels=in_channels,
+                           batch_size=batch_size)
+
+    cluster_met.run()
+    cluster_acc = cluster_met.get_accuracies()
+    print(cluster_acc)
+
     # The random choice method
     aleat_met = Aleat_meth(train_set=train_set,
                             test_set=test_set,
@@ -110,7 +111,8 @@ if __name__ == "__main__":
     aleat_acc = aleat_met.get_accuracies()
     print(aleat_acc)
 
-    # The naive method
+
+    # The naive method with type 'difference'
     naive_meth = Naive_meth(train_set=train_set,
                             test_set=test_set,
                             model_name=args.model,
@@ -119,11 +121,41 @@ if __name__ == "__main__":
                             val_set=val_set,
                             in_channels=in_channels,
                             batch_size=batch_size,
-                            naive_meth=args.naive_meth)
+                            naive_meth='diff')
 
     naive_meth.run()
-    naive_acc = naive_meth.get_accuracies()
-    print(naive_acc)
+    naive_acc1 = naive_meth.get_accuracies()
+    print(naive_acc1)
+    
+    # The naive method with type 'entropy'
+    naive_meth = Naive_meth(train_set=train_set,
+                            test_set=test_set,
+                            model_name=args.model,
+                            optimizer_factory=optimizer_factory,
+                            num_epochs=num_epochs,
+                            val_set=val_set,
+                            in_channels=in_channels,
+                            batch_size=batch_size,
+                            naive_meth='entropy')
+
+    naive_meth.run()
+    naive_acc2 = naive_meth.get_accuracies()
+    print(naive_acc2)
+    
+    # The naive method with type 'maximum'
+    naive_meth = Naive_meth(train_set=train_set,
+                            test_set=test_set,
+                            model_name=args.model,
+                            optimizer_factory=optimizer_factory,
+                            num_epochs=num_epochs,
+                            val_set=val_set,
+                            in_channels=in_channels,
+                            batch_size=batch_size,
+                            naive_meth='max')
+
+    naive_meth.run()
+    naive_acc3 = naive_meth.get_accuracies()
+    print(naive_acc3)
 
 
 
@@ -134,9 +166,10 @@ if __name__ == "__main__":
     ax = f.add_subplot()
 
     ax.plot(data_sizes, aleat_acc, '-o', label='random method')
-    ax.plot(data_sizes, naive_acc, '-o', label='naive method')
-    # ax.plot(data_sizes, naive_acc, '-o', label='naive method')
-    # ax.plot(data_sizes, naive_acc, '-o', label='naive method')
+    ax.plot(data_sizes, naive_acc1, '-o', label='naive method type diff')
+    ax.plot(data_sizes, naive_acc2, '-o', label='naive method type entropy')
+    ax.plot(data_sizes, naive_acc3, '-o', label='naive method type max')
+    ax.plot(data_sizes, cluster_met, '-o', label='clustering method')
     ax.set_title('Accuracy on test set')
     ax.set_xlabel('Data size')
     ax.set_ylabel('Accuracy')

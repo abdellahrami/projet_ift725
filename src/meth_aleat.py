@@ -1,16 +1,3 @@
-#!/usr/bin/env python
-# -*- coding:utf-8 -*-
-
-"""
-University of Sherbrooke
-Date:
-Authors: Mamadou Mountagha BAH & Pierre-Marc Jodoin
-License: Opensource, free to use
-Other: Suggestions are welcome
-"""
-
-import argparse
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -19,7 +6,6 @@ from CNNTrainTestManager import CNNTrainTestManager, optimizer_setup
 from models.AlexNet import AlexNet
 from models.CNNVanilla import CnnVanilla
 from models.ResNet import ResNet
-from models.VggNet import VggNet
 from torchvision import datasets
 from random import sample
 import matplotlib.pyplot as plt

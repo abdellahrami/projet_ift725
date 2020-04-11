@@ -46,26 +46,16 @@ class CnnVanilla(CNNBaseModel):
             nn.ReLU(inplace=True),
             nn.Conv2d(in_channels=256, out_channels=256, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.MaxPool2d(kernel_size=2, stride=2, padding=int(in_channels < 3)),
         )
-        if(in_channels == 3):
-            self.fc_layers = nn.Sequential(
-                nn.Linear(256 * 4 * 4, 1024),
-                nn.ReLU(inplace=True),
-                nn.Linear(1024, 512),
-                nn.ReLU(inplace=True),
-                nn.Dropout(p=0.2),
-                nn.Linear(512, num_classes)
-            )
-        elif(in_channels == 1):
-            self.fc_layers = nn.Sequential(
-                nn.Linear(2304, 1024),
-                nn.ReLU(inplace=True),
-                nn.Linear(1024, 512),
-                nn.ReLU(inplace=True),
-                nn.Dropout(p=0.2),
-                nn.Linear(512, num_classes)
-            )
+        self.fc_layers = nn.Sequential(
+            nn.Linear(256 * 4 * 4, 1024),
+            nn.ReLU(inplace=True),
+            nn.Linear(1024, 512),
+            nn.ReLU(inplace=True),
+            nn.Dropout(p=0.2),
+            nn.Linear(512, num_classes)
+        )
 
     def forward(self, x):
         """

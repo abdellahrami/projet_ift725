@@ -16,7 +16,9 @@ from typing import Callable, Type
 from tqdm import tqdm
 from utils import mean_dice
 import matplotlib.pyplot as plt
+from models.Encoder import Encoder
 from torchvision.transforms import transforms
+from functools import reduce
 
 
 class CNNTrainTestManager(object):
@@ -33,7 +35,8 @@ class CNNTrainTestManager(object):
                  validation=None,
                  use_cuda=False,
                  train_index_list = None,
-                 epoch = 0):
+                 epoch = 0,
+                 tqdm_disable = False):
         """
         Args:
             model: model to train
@@ -65,6 +68,7 @@ class CNNTrainTestManager(object):
         self.use_cuda = use_cuda
         self.metric_values = {}
         self.epoch = epoch
+        self.tqdm_disable = tqdm_disable
 
     def train(self, num_epochs):
         """
@@ -85,7 +89,7 @@ class CNNTrainTestManager(object):
             print("Epoch: {} of {}".format(epoch + 1, num_epochs+self.epoch))
             train_loss = 0.0
 
-            with tqdm(range(len(train_loader)),disable=True) as t:
+            with tqdm(range(len(train_loader)),disable=self.tqdm_disable) as t:
                 train_losses = []
                 train_accuracies = []
                 for i, data in enumerate(train_loader, 0):
@@ -98,24 +102,22 @@ class CNNTrainTestManager(object):
                     # forward pass
                     train_outputs = self.model(train_inputs)
                     # computes loss using loss function loss_fn
-                    loss = self.loss_fn(train_outputs, train_labels)
+                    if isinstance(self.model, Encoder):
+                        loss = self.loss_fn(train_outputs.float(), train_inputs.float())
+                    else :
+                        loss = self.loss_fn(train_outputs, train_labels)
 
                     # Use autograd to compute the backward pass.
                     loss.backward()
 
-                    # updates the weights using gradient descent
-                    """
-                    Way it could be done manually
-
-                    with torch.no_grad():
-                        for param in self.model.parameters():
-                            param -= learning_rate * param.grad
-                    """
                     self.optimizer.step()
 
                     # Save losses for plotting purposes
                     train_losses.append(loss.item())
-                    train_accuracies.append(self.accuracy(train_outputs, train_labels))
+                    if isinstance(self.model, Encoder):
+                        train_accuracies.append(self.accuracy(train_outputs.float(), train_inputs.float()))
+                    else:
+                        train_accuracies.append(self.accuracy(train_outputs, train_labels))
 
                     # print metrics along progress bar
                     train_loss += loss.item()
@@ -151,19 +153,37 @@ class CNNTrainTestManager(object):
                 val_outputs = self.model(val_inputs)
 
                 # compute loss function
-                loss = self.loss_fn(val_outputs, val_labels)
+                if isinstance(self.model, Encoder):
+                    loss = self.loss_fn(val_outputs.float(), val_inputs.float())
+                else :
+                    loss = self.loss_fn(val_outputs, val_labels)
                 validation_losses.append(loss.item())
-                validation_accuracies.append(self.accuracy(val_outputs, val_labels))
+                if isinstance(self.model, Encoder):
+                    validation_accuracies.append(self.accuracy(val_outputs.float(), val_inputs.float()))
+                else:
+                    validation_accuracies.append(self.accuracy(val_outputs, val_labels))
                 validation_loss += loss.item()
 
         self.metric_values['val_loss'].append(np.mean(validation_losses))
         self.metric_values['val_acc'].append(np.mean(validation_accuracies))
 
         # displays metrics
-        print('Validation loss %.3f' % (validation_loss / len(val_loader)))
+        print('Validation loss %.3f' % (validation_loss / (len(val_loader)+1) ))
 
         # switch back to train mode
         self.model.train()
+    
+    def encode(self, trainset, testset, index_list):
+        acitv_lr_data = DataManager(trainset, testset, batch_size=20, validation=0.0, train_index_list=index_list).get_train_set()
+        outputs = []
+        indexs_out = []
+        with torch.no_grad():
+            for data in acitv_lr_data:
+                inputs, labels, indexes = data[0].to(self.device), data[1].to(self.device), data[2].to(self.device)
+                outputs += self.model.encode(inputs).tolist()
+                indexs_out += indexes.tolist()
+        return outputs,indexs_out
+
 
     def accuracy(self, outputs, labels):
         """
@@ -174,9 +194,14 @@ class CNNTrainTestManager(object):
         Returns:
             Accuracy of the model
         """
-        predicted = outputs.argmax(dim=1)
-        correct = (predicted == labels).sum().item()
-        return correct / labels.size(0)
+        if isinstance(self.model, Encoder):
+            predicted = outputs.view(outputs.size(0),-1).int()
+            correct = (predicted == labels.view(outputs.size(0),-1).int()).sum()
+            return correct.sum().item() / reduce((lambda x, y: x * y), outputs.size())
+        else:
+            predicted = outputs.argmax(dim=1)
+            correct = (predicted == labels).sum().item()
+            return correct / labels.size(0)
 
     def evaluate_on_test_set(self):
         """
@@ -190,7 +215,10 @@ class CNNTrainTestManager(object):
             for data in test_loader:
                 test_inputs, test_labels = data[0].to(self.device), data[1].to(self.device)
                 test_outputs = self.model(test_inputs)
-                accuracies += self.accuracy(test_outputs, test_labels)
+                if isinstance(self.model, Encoder):
+                    accuracies += self.accuracy(test_outputs.float(), test_inputs.float())
+                else:
+                    accuracies += self.accuracy(test_outputs, test_labels)
         print("Accuracy (or Dice for cp) on the test set: {:05.3f} %".format(100 * accuracies / len(test_loader)))
         return 100 * accuracies / len(test_loader)
 
@@ -199,53 +227,24 @@ class CNNTrainTestManager(object):
                                     validation=0.0, train_index_list=index_list).get_train_set()
         dict_indx = {}
         with torch.no_grad():
-                for data in acitv_lr_data:
-                    inputs, labels, indexes = data[0].to(self.device), data[1].to(self.device), data[2].to(self.device)
-                    outputs = self.model(inputs)
-                    for indx,output in zip(indexes,outputs):
-                        output = list([l.item() for l in output])
-                        output = np.exp(output)/sum(np.exp(output)) #softmax
-                        if type == 'diff' :
-                            dict_indx[indx.item()] = max(output)
-                            output = output[output != max(output)]
-                            dict_indx[indx.item()] -= max(output)
-                        elif type == 'entropy':
-                            dict_indx[indx.item()] = - np.sum(output *  np.log(output))
-                        elif type == 'max' :
-                            dict_indx[indx.item()] = max(output)
+            for data in acitv_lr_data:
+                inputs, labels, indexes = data[0].to(self.device), data[1].to(self.device), data[2].to(self.device)
+                outputs = self.model(inputs)
+                for indx,output in zip(indexes,outputs):
+                    output = list([l.item() for l in output])
+                    output = np.exp(output)/sum(np.exp(output)) #softmax
+                    if type == 'diff' :
+                        dict_indx[indx.item()] = max(output)
+                        output = output[output != max(output)]
+                        dict_indx[indx.item()] -= max(output)
+                    elif type == 'entropy':
+                        dict_indx[indx.item()] = - np.sum(output *  np.log(output))
+                    elif type == 'max' :
+                        dict_indx[indx.item()] = max(output)
         out_indexs = [k for k, v in sorted(dict_indx.items(), key=lambda item: item[1])]
 
         return out_indexs[:out_size]
 
-
-
-    def plot_metrics(self):
-        """
-        Function that plots train and validation losses and accuracies after training phase
-        """
-        epochs = range(1, len(self.metric_values['train_loss']) + 1)
-
-        f = plt.figure(figsize=(10, 5))
-        ax1 = f.add_subplot(121)
-        ax2 = f.add_subplot(122)
-
-        # loss plot
-        ax1.plot(epochs, self.metric_values['train_loss'], '-o', label='Training loss')
-        ax1.plot(epochs, self.metric_values['val_loss'], '-o', label='Validation loss')
-        ax1.set_title('Training and validation loss')
-        ax1.set_xlabel('Epochs')
-        ax1.set_ylabel('Loss')
-        ax1.legend()
-
-        # accuracy plot
-        ax2.plot(epochs, self.metric_values['train_acc'], '-o', label='Training accuracy')
-        ax2.plot(epochs, self.metric_values['val_acc'], '-o', label='Validation accuracy')
-        ax2.set_title('Training and validation accuracy')
-        ax2.set_xlabel('Epochs')
-        ax2.set_ylabel('accuracy')
-        ax2.legend()
-        f.savefig('fig1.png')
-        plt.show()
 
 
 def optimizer_setup(optimizer_class: Type[torch.optim.Optimizer], **hyperparameters) -> \

@@ -231,29 +231,3 @@ def mean_dice(input: Tensor, target: Tensor, reduction: str = 'mean') -> Tensor:
     mean_dice = torch.mean(dices, dim=0)  # Compute the mean dice over all classes
     return mean_dice
 
-
-# def convert_mask_to_rgb_image(img):
-#     """
-#         This function assigns each class present on the ground truth a unique color
-#         which is going to help for printing
-#         Args:
-#             img: the image to convert to
-#         returns:
-#             the converted image
-#     """
-#     image = np.zeros((img.shape[0], img.shape[1], 3))
-#     indices = np.where(img == 0)
-#     # black color
-#     image[indices] = [0, 0, 0]
-#     indices = np.where(img == 1)
-#     # red color
-#     image[indices] = [255, 0, 0]
-#     image[indices] = [0, 0, 0]
-#     indices = np.where(img == 2)
-#     # blue color
-#     image[indices] = [49, 140, 231]
-#     indices = np.where(img == 3)
-#     # green color
-#     image[indices] = [173, 242, 182]
-#     image[indices] = [0, 0, 0]
-#     return image
