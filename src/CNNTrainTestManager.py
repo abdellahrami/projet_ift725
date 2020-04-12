@@ -238,7 +238,7 @@ class CNNTrainTestManager(object):
                         output = output[output != max(output)]
                         dict_indx[indx.item()] -= max(output)
                     elif type == 'entropy':
-                        dict_indx[indx.item()] = - np.sum(output *  np.log(output))
+                        dict_indx[indx.item()] = - (- np.sum(output *  np.log(output)))
                     elif type == 'max' :
                         dict_indx[indx.item()] = max(output)
         out_indexs = [k for k, v in sorted(dict_indx.items(), key=lambda item: item[1])]
